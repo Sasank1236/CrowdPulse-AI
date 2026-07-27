@@ -1,0 +1,14 @@
+{
+  "name": "crowdpulse-ai",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "start:backend": "cd backend && node Server.js",
+    "start:frontend": "cd frontend && react-scripts start",
+    "start": "npm run start:backend"
+  }
+}

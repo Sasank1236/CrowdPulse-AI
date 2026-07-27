@@ -1,0 +1,250 @@
+const express  = require("express");
+const mongoose = require("mongoose");
+const http     = require("http");
+const { Server } = require("socket.io");
+const cors     = require("cors");
+
+const bcrypt = require("bcrypt");
+const jwt    = require("jsonwebtoken");
+const multer = require("multer");
+const axios  = require("axios");
+const FormData = require("form-data");
+
+const CrowdStat = require("./models/CrowdStat");
+const { CAMPUS_LOCATIONS } = require("./models/CrowdStat");
+const User = require("./models/User");
+
+const app    = express();
+const server = http.createServer(app);
+const io     = new Server(server, { cors: { origin: "*" } });
+
+app.use(cors());
+app.use(express.json({ limit: "2mb" }));
+
+//─── MongoDB ─────────────────────────────────────────────
+mongoose
+  .connect("mongodb://127.0.0.1:27017/crowd")
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB error:", err));
+
+// require("dotenv").config();
+
+// mongoose
+//   .connect(process.env.MONGO_URI)
+//   .then(() => console.log("✅ MongoDB connected"))
+//   .catch((err) => console.error("❌ MongoDB error:", err));
+// ─── LOGIN ROUTE ─────────────────────────────────────────
+app.post("/api/auth/login", async (req, res) => {
+  try {
+
+    const { username, password } = req.body;
+
+    const user = await User.findOne({ username });
+
+    if (!user)
+      return res.status(401).json({ error: "Invalid username" });
+
+    const match = await bcrypt.compare(password, user.password);
+
+    if (!match)
+      return res.status(401).json({ error: "Invalid password" });
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      "secret123",
+      { expiresIn: "1d" }
+    );
+
+    res.json({
+      username: user.username,
+      role: user.role,
+      token
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+
+// ─── Image upload (Security → analyzed → broadcast to Control Room) ─────
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+});
+
+app.post("/api/upload-image", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(400).json({ error: "No image uploaded" });
+
+    const form = new FormData();
+    form.append("image", req.file.buffer, {
+      filename: req.file.originalname || "upload.jpg",
+    });
+
+    const pyRes = await axios.post(
+      "http://localhost:5001/process_image",
+      form,
+      { headers: form.getHeaders(), maxBodyLength: Infinity }
+    );
+
+    const { people, capacity, density, image_base64 } = pyRes.data;
+
+    const payload = {
+      camera: "uploaded",
+      people,
+      capacity,
+      density,
+      densityRatio: capacity ? people / capacity : 0,
+      image: `data:image/jpeg;base64,${image_base64}`,
+      uploadedBy: req.body.username || "security",
+      timestamp: new Date(),
+    };
+
+    io.emit("uploadedImage", payload);
+
+    res.json(payload);
+
+  } catch (err) {
+    console.error("Image upload error:", err.message);
+    res.status(500).json({ error: "Failed to process image" });
+  }
+});
+
+
+// ─── Threshold persistence ───────────────────────────────
+let thresholds = { LOW: 0.4, MEDIUM: 0.7 };
+
+const ThresholdSchema = new mongoose.Schema({
+  key:   { type: String, unique: true },
+  value: Number,
+});
+const Threshold = mongoose.model("Threshold", ThresholdSchema);
+
+async function loadThresholds() {
+  try {
+    const docs = await Threshold.find();
+    docs.forEach((d) => (thresholds[d.key] = d.value));
+  } catch {}
+}
+loadThresholds();
+
+
+// ─── Threshold routes ────────────────────────────────────
+app.get("/api/thresholds", (_req, res) => res.json(thresholds));
+
+app.post("/api/thresholds", async (req, res) => {
+  try {
+    const { LOW, MEDIUM } = req.body;
+
+    thresholds = {
+      LOW: parseFloat(LOW),
+      MEDIUM: parseFloat(MEDIUM)
+    };
+
+    await Threshold.findOneAndUpdate(
+      { key: "LOW" },
+      { value: thresholds.LOW },
+      { upsert: true }
+    );
+
+    await Threshold.findOneAndUpdate(
+      { key: "MEDIUM" },
+      { value: thresholds.MEDIUM },
+      { upsert: true }
+    );
+
+    io.emit("thresholds", thresholds);
+
+    res.json(thresholds);
+
+  } catch {
+    res.status(500).json({ error: "Failed to save thresholds" });
+  }
+});
+
+
+// ─── Live stats ─────────────────────────────────────────
+app.post("/api/live-stats", async (req, res) => {
+
+  try {
+
+    const {
+      camera,
+      people,
+      capacity,
+      density,
+      densityRatio
+    } = req.body;
+
+    const stat = await CrowdStat.create({
+      camera,
+      people,
+      capacity,
+      density,
+      densityRatio,
+      timestamp: new Date()
+    });
+
+    io.emit("live", stat);
+
+    if (density === "HIGH") {
+      io.emit("alert", {
+        message: `🚨 HIGH density on ${camera}`
+      });
+    }
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to save stat" });
+  }
+});
+
+
+// ─── Cameras list ───────────────────────────────────────
+app.get("/api/cameras", async (req, res) => {
+  try {
+    const cameras = await CrowdStat.distinct("camera");
+    res.json(cameras);
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+
+// ─── Daily data ─────────────────────────────────────────
+app.get("/api/daily", async (req, res) => {
+  try {
+    const data = await CrowdStat.find()
+      .sort({ timestamp: -1 })
+      .limit(100);
+
+    res.json(data);
+
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+
+// ─── Socket ─────────────────────────────────────────────
+io.on("connection", (socket) => {
+
+  socket.on("subscribe", (cam) => {
+    socket.join(cam);
+  });
+
+});
+
+
+// ─── START SERVER ───────────────────────────────────────
+server.listen(5000, () => {
+  console.log("🚀 Backend running on http://localhost:5000");
+});
+// const PORT = process.env.PORT || 5000;
+
+// server.listen(PORT, () => {
+//   console.log(`🚀 Backend running on port ${PORT}`);
+// });
