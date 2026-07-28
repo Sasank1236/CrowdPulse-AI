@@ -165,8 +165,8 @@ app.post("/api/thresholds", async (req, res) => {
 });
 
 
-// ─── Live stats ─────────────────────────────────────────
-app.post("/api/live-stats", async (req, res) => {
+// ─── Live stats ingestion (Task 1.2: POST /api/live-stats & /api/stats) ─────────
+const handleLiveStatsIngestion = async (req, res) => {
   try {
     const {
       camera,
@@ -180,40 +180,57 @@ app.post("/api/live-stats", async (req, res) => {
       timestamp
     } = req.body;
 
+    // Sanitize and validate inputs (Task 1.2 edge-case robustness)
+    const sanitizedCamera = typeof camera === "string" && camera.trim() ? camera.trim() : "default";
+    const sanitizedPeople = isNaN(Number(people)) ? 0 : Math.max(0, Math.round(Number(people)));
+    const sanitizedCapacity = isNaN(Number(capacity)) ? 1 : Math.max(1, Math.round(Number(capacity)));
+    const validDensity = ["LOW", "MEDIUM", "HIGH"].includes(density) ? density : "LOW";
+    const sanitizedRatio = isNaN(Number(densityRatio)) ? 0 : Math.max(0, Number(densityRatio));
+    const validLocation = (typeof location === "string" && CAMPUS_LOCATIONS.includes(location)) ? location : null;
+    const validWeather = ["clear", "cloudy", "rainy", "stormy", "unknown"].includes(weather) ? weather : "clear";
+    const validEventType = ["normal", "class_change", "exam", "fest", "sports", "emergency"].includes(eventType) ? eventType : "normal";
+
     let ts = new Date();
     if (timestamp) {
-      ts = typeof timestamp === "number" && timestamp < 1e11
-        ? new Date(timestamp * 1000)
-        : new Date(timestamp);
+      if (typeof timestamp === "number") {
+        ts = timestamp < 1e11 ? new Date(timestamp * 1000) : new Date(timestamp);
+      } else {
+        const parsed = new Date(timestamp);
+        if (!isNaN(parsed.getTime())) ts = parsed;
+      }
     }
 
     const stat = await CrowdStat.create({
-      camera,
-      people,
-      capacity,
-      density,
-      densityRatio,
-      location: typeof location === "string" ? location : undefined,
-      weather: weather || "clear",
-      eventType: eventType || "normal",
+      camera: sanitizedCamera,
+      people: sanitizedPeople,
+      capacity: sanitizedCapacity,
+      density: validDensity,
+      densityRatio: sanitizedRatio,
+      location: validLocation,
+      weather: validWeather,
+      eventType: validEventType,
       timestamp: ts
     });
 
     io.emit("live", stat);
 
-    if (density === "HIGH") {
+    if (validDensity === "HIGH") {
       io.emit("alert", {
-        message: `🚨 HIGH density on ${camera}`
+        camera: sanitizedCamera,
+        message: `🚨 HIGH density on ${sanitizedCamera}`
       });
     }
 
-    res.sendStatus(200);
+    res.status(200).json({ success: true, id: stat._id });
 
   } catch (err) {
     console.error("Live stats ingestion error:", err);
     res.status(500).json({ error: "Failed to save stat" });
   }
-});
+};
+
+app.post("/api/live-stats", handleLiveStatsIngestion);
+app.post("/api/stats",      handleLiveStatsIngestion);
 
 
 // ─── Cameras list ───────────────────────────────────────

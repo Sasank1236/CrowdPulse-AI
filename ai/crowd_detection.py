@@ -16,6 +16,8 @@ from collections import deque
 from twilio.rest import Client
 
 
+from concurrent.futures import ThreadPoolExecutor
+
 # ---------------- TWILIO CONFIG (Environment Variables) ----------------
 ACCOUNT_SID   = os.getenv("TWILIO_ACCOUNT_SID", "YOUR_TWILIO_ACCOUNT_SID")
 AUTH_TOKEN    = os.getenv("TWILIO_AUTH_TOKEN", "YOUR_TWILIO_AUTH_TOKEN")
@@ -23,23 +25,35 @@ TWILIO_NUMBER = os.getenv("TWILIO_NUMBER", "+10000000000")
 USER_MOBILE   = os.getenv("USER_MOBILE", "+910000000000")
 
 
-# ---------------- CAMERAS ----------------
+# ---------------- CAMERAS & LOCATION MAPPING ----------------
 CAMERAS = {
     "cam1": 0,
     #"cam2": "http://10.22.226.213:4747/video",
 }
 
+CAMERA_LOCATIONS = {
+    "cam1": "LHTC",
+    "cam2": "CC",
+}
 
-# ---------------- API ----------------
+
+# ---------------- API & ASYNC DISPATCHER (Task 1.2) ----------------
 API_URL        = "http://localhost:5000/api/live-stats"
 THRESHOLDS_URL = "http://localhost:5000/api/thresholds"
-
-# API_URL = "https://real-time-crowd-analytics-system.onrender.com/api/live-stats"
-# THRESHOLDS_URL = "https://real-time-crowd-analytics-system.onrender.com/api/thresholds"
 
 POST_INTERVAL = 0.5
 TWILIO_COOLDOWN = 60
 SMOOTHING_WINDOW = 10
+
+# Non-blocking async thread pool for backend posts to prevent stream lag
+post_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="post_worker")
+
+def send_stat_async(url, payload):
+    """Sends payload asynchronously without blocking the detection / video stream loop."""
+    try:
+        requests.post(url, json=payload, timeout=1.5)
+    except Exception:
+        pass
 
 
 # ---------------- MODEL ----------------
@@ -210,10 +224,11 @@ def suppress_duplicates(boxes, iou_threshold=0.4):
 # ---------------- CAMERA CLASS ----------------
 class CrowdCamera:
 
-    def __init__(self, cam_id, source):
+    def __init__(self, cam_id, source, location=None):
 
         self.cam_id = cam_id
         self.source = source
+        self.location = location or CAMERA_LOCATIONS.get(cam_id, "LHTC")
         self.cap = cv2.VideoCapture(source)
 
         self.tracked = []
@@ -407,25 +422,24 @@ class CrowdCamera:
         else:
             self.high_density_start = None
 
-        # POST to backend
+        # POST to backend asynchronously (non-blocking Task 1.2)
         now = time.time()
         if now - self.last_post_time >= POST_INTERVAL:
             try:
                 cap_est = max(max_people, people, 1)
                 ratio = round(people / cap_est, 2)
-                requests.post(
-                    API_URL,
-                    json={
-                        "camera": self.cam_id,
-                        "people": people,
-                        "capacity": cap_est,
-                        "density": density,
-                        "densityRatio": ratio,
-                        "timestamp": now,
-                        "location": getattr(self, "location", None),
-                    },
-                    timeout=1,
-                )
+                payload = {
+                    "camera": self.cam_id,
+                    "location": self.location,
+                    "people": int(people),
+                    "capacity": int(cap_est),
+                    "density": str(density),
+                    "densityRatio": float(ratio),
+                    "timestamp": float(now),
+                    "weather": "clear",
+                    "eventType": "normal",
+                }
+                post_executor.submit(send_stat_async, API_URL, payload)
                 self.last_post_time = now
             except Exception:
                 pass
