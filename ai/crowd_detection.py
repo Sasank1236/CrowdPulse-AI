@@ -408,26 +408,26 @@ class CrowdCamera:
             self.high_density_start = None
 
         # POST to backend
-        now=time.time()
-        if now-self.last_post_time>=POST_INTERVAL:
+        now = time.time()
+        if now - self.last_post_time >= POST_INTERVAL:
             try:
+                cap_est = max(max_people, people, 1)
+                ratio = round(people / cap_est, 2)
                 requests.post(
-    API_URL,
-    json={
-        "camera": self.cam_id,
-        "people": people,
-        "capacity": max_people,
-        "density": density,
-        "densityRatio": max_people,
-        "timestamp": now,
-        "location": {
-            "x": 0.5,
-            "y": 0.5
-        }
-    },
-)
-                self.last_post_time=now
-            except:
+                    API_URL,
+                    json={
+                        "camera": self.cam_id,
+                        "people": people,
+                        "capacity": cap_est,
+                        "density": density,
+                        "densityRatio": ratio,
+                        "timestamp": now,
+                        "location": getattr(self, "location", None),
+                    },
+                    timeout=1,
+                )
+                self.last_post_time = now
+            except Exception:
                 pass
 
         # UI

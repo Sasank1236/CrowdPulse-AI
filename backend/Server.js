@@ -167,16 +167,25 @@ app.post("/api/thresholds", async (req, res) => {
 
 // ─── Live stats ─────────────────────────────────────────
 app.post("/api/live-stats", async (req, res) => {
-
   try {
-
     const {
       camera,
       people,
       capacity,
       density,
-      densityRatio
+      densityRatio,
+      location,
+      weather,
+      eventType,
+      timestamp
     } = req.body;
+
+    let ts = new Date();
+    if (timestamp) {
+      ts = typeof timestamp === "number" && timestamp < 1e11
+        ? new Date(timestamp * 1000)
+        : new Date(timestamp);
+    }
 
     const stat = await CrowdStat.create({
       camera,
@@ -184,7 +193,10 @@ app.post("/api/live-stats", async (req, res) => {
       capacity,
       density,
       densityRatio,
-      timestamp: new Date()
+      location: typeof location === "string" ? location : undefined,
+      weather: weather || "clear",
+      eventType: eventType || "normal",
+      timestamp: ts
     });
 
     io.emit("live", stat);
@@ -198,6 +210,7 @@ app.post("/api/live-stats", async (req, res) => {
     res.sendStatus(200);
 
   } catch (err) {
+    console.error("Live stats ingestion error:", err);
     res.status(500).json({ error: "Failed to save stat" });
   }
 });
