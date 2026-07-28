@@ -135,6 +135,7 @@
 
 
 import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 
 const BASE = "http://localhost:5000";
 
@@ -157,20 +158,56 @@ export default function History({ selectedCam, cameras = [] }) {
       .catch(() => {});
   }, []);
 
-  // Fetch summary whenever filters change
+  // Fetch summary automatically whenever filters change or live stats update
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let isMounted = true;
 
-    const params = new URLSearchParams();
-    if (filterCam) params.set("camera",   filterCam);
-    if (filterLoc) params.set("location", filterLoc);
-    const qs = params.toString();
+    const fetchSummary = (showLoading = false) => {
+      if (showLoading) {
+        setLoading(true);
+        setError(null);
+      }
 
-    fetch(`${BASE}/api/daily-summary${qs ? "?" + qs : ""}`)
-      .then((r) => { if (!r.ok) throw new Error(`Server error: ${r.status}`); return r.json(); })
-      .then((json) => { setData(json); setLoading(false); })
-      .catch((err) => { setError(err.message); setLoading(false); });
+      const params = new URLSearchParams();
+      if (filterCam) params.set("camera",   filterCam);
+      if (filterLoc) params.set("location", filterLoc);
+      const qs = params.toString();
+
+      fetch(`${BASE}/api/daily-summary${qs ? "?" + qs : ""}`)
+        .then((r) => { if (!r.ok) throw new Error(`Server error: ${r.status}`); return r.json(); })
+        .then((json) => {
+          if (isMounted) {
+            setData(json);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            if (showLoading) setError(err.message);
+            setLoading(false);
+          }
+        });
+    };
+
+    // Initial fetch for filter change
+    fetchSummary(true);
+
+    // Auto-poll stats every 3 seconds for live updates
+    const intervalId = setInterval(() => {
+      fetchSummary(false);
+    }, 3000);
+
+    // Listen to real-time socket events for instant update when a stat is recorded
+    const socket = io(BASE);
+    socket.on("live", () => {
+      fetchSummary(false);
+    });
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      socket.disconnect();
+    };
   }, [filterCam, filterLoc]);
 
   return (

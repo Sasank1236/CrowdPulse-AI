@@ -214,17 +214,54 @@ app.get("/api/cameras", async (req, res) => {
 });
 
 
-// ─── Daily data ─────────────────────────────────────────
-app.get("/api/daily", async (req, res) => {
+// ─── Locations list ─────────────────────────────────────
+app.get("/api/locations", (_req, res) => {
+  res.json(CAMPUS_LOCATIONS);
+});
+
+
+// ─── Daily Summary ──────────────────────────────────────
+app.get("/api/daily-summary", async (req, res) => {
   try {
-    const data = await CrowdStat.find()
-      .sort({ timestamp: -1 })
-      .limit(100);
+    const { camera, location } = req.query;
+    const match = {};
+    if (camera)   match.camera   = camera;
+    if (location) match.location = location;
 
-    res.json(data);
+    const summary = await CrowdStat.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+            camera: "$camera",
+          },
+          maxPeople:    { $max: "$people" },
+          avgPeople:    { $avg: "$people" },
+          avgCapacity:  { $avg: "$capacity" },
+          totalRecords: { $sum: 1 },
+          alerts:       { $sum: { $cond: [{ $eq: ["$density", "HIGH"] }, 1, 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          date: "$_id.date",
+          camera: "$_id.camera",
+          maxPeople: 1,
+          avgPeople:   { $round: ["$avgPeople", 1] },
+          avgCapacity: { $round: ["$avgCapacity", 0] },
+          totalRecords: 1,
+          alerts: 1,
+        },
+      },
+      { $sort: { date: -1, camera: 1 } },
+    ]);
 
-  } catch {
-    res.status(500).json({ error: "Failed" });
+    res.json(summary);
+  } catch (err) {
+    console.error("Daily summary error:", err);
+    res.status(500).json({ error: "Failed to fetch daily summary" });
   }
 });
 
