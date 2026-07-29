@@ -13,6 +13,7 @@ const FormData = require("form-data");
 const CrowdStat = require("./models/CrowdStat");
 const { CAMPUS_LOCATIONS } = require("./models/CrowdStat");
 const User = require("./models/User");
+const analyticsRouter = require("./routes/analytics");
 
 const app    = express();
 const server = http.createServer(app);
@@ -231,6 +232,7 @@ const handleLiveStatsIngestion = async (req, res) => {
 
 app.post("/api/live-stats", handleLiveStatsIngestion);
 app.post("/api/stats",      handleLiveStatsIngestion);
+app.use("/api/stats",       analyticsRouter);
 
 
 // ─── Cameras list ───────────────────────────────────────
