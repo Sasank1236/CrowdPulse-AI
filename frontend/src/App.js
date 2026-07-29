@@ -5,6 +5,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import History from "./History";
+import Analytics from "./Analytics";
 import Settings from "./Settings";
 import CrowdHeatmap from "./Crowdheatmap";
 import Login from "./Login";
@@ -230,7 +231,7 @@ export default function App() {
   // Public users only see the live tab
   const availableTabs = isPublic
     ? ["live"]
-    : ["live", "history", "settings"];
+    : ["live", "analytics", "history", "settings"];
 
   return (
     <div className="app-container">
@@ -446,8 +447,9 @@ export default function App() {
         </div>
       )}
 
-      {view === "history"  && !isPublic && <History selectedCam={selectedCam} cameras={cameras} />}
-      {view === "settings" && !isPublic && <Settings token={auth.token} />}
+      {view === "analytics" && !isPublic && <Analytics cameras={cameras} selectedCam={selectedCam} />}
+      {view === "history"   && !isPublic && <History selectedCam={selectedCam} cameras={cameras} />}
+      {view === "settings"  && !isPublic && <Settings token={auth.token} />}
     </div>
   );
 }
