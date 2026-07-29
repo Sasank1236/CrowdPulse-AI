@@ -15,7 +15,9 @@
 | **SMS Alerts** | Twilio integration sends SMS notifications when HIGH density persists for ≥ 5 seconds |
 | **Configurable Thresholds** | Density thresholds (LOW / MEDIUM / HIGH) are adjustable from the Settings panel and persisted in MongoDB |
 | **Campus Heatmap** | Interactive SVG heatmap of the PDPM IIITDM Jabalpur campus with real-time density overlays |
-| **History View** | Browse and filter historical crowd statistics stored in MongoDB |
+| **Historical Data Storage (Task 1)** | Granular database schema & temporal indexing (`hour`, `dayOfWeek`, `dateStr`, `isWeekend`, `weather`, `eventType`, `location`) |
+| **Analytics APIs (Task 2.1)** | REST endpoints for historical search (`/api/stats/history`), multi-camera / location / period comparison (`/api/stats/comparison`), and trendlines (`/api/stats/trends`) |
+| **Analytics Dashboard & Charts (Task 2.2)** | Dedicated React Analytics view with time-series area charts, 24h peak hour matrix, day-of-week distribution, multi-entity comparative cards, and period delta banners |
 
 ---
 
@@ -55,8 +57,11 @@ FINAL-Crowd/
 ├── backend/                     # Node.js API server
 │   ├── Server.js                # Express + Socket.IO server, REST endpoints
 │   ├── Seed.js                  # Database seeder (creates default users)
+│   ├── test_analytics_api.js    # Verification suite for analytics APIs
+│   ├── routes/
+│   │   └── analytics.js         # REST router for history, comparison & trend APIs
 │   ├── models/
-│   │   ├── CrowdStat.js         # Mongoose schema for crowd statistics
+│   │   ├── CrowdStat.js         # Mongoose schema for crowd statistics with temporal metadata
 │   │   └── User.js              # Mongoose schema for user authentication
 │   └── package.json
 │
@@ -65,8 +70,9 @@ FINAL-Crowd/
 │   ├── src/
 │   │   ├── App.js               # Main dashboard component
 │   │   ├── App.css              # Application styles
+│   │   ├── Analytics.js          # Task 2.2 Interactive Analytics & Trend Dashboard
 │   │   ├── Crowdheatmap.js      # Interactive campus heatmap (SVG)
-│   │   ├── History.js           # Historical data viewer
+│   │   ├── History.js           # Historical data viewer table
 │   │   ├── Login.js             # Authentication form
 │   │   ├── Settings.js          # Threshold configuration panel
 │   │   ├── index.js             # React entry point
@@ -182,13 +188,23 @@ python crowd_detection.py
 |--------|----------|-------------|
 | `POST` | `/api/auth/login` | Authenticate user (returns JWT token) |
 
-### Crowd Data
+### Crowd Data & Infrastructure (Task 1)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/live-stats` | Push live detection stats (from AI service) |
-| `GET`  | `/api/daily` | Retrieve latest 100 crowd stat records |
+| `POST` | `/api/live-stats` | Stream live YOLO telemetry (supports extended temporal & environmental metadata) |
+| `POST` | `/api/stats` | Endpoint alias for live stat ingestion |
 | `GET`  | `/api/cameras` | List all detected camera IDs |
+| `GET`  | `/api/locations` | List all 20 monitored IIITDM Jabalpur campus zones |
+| `GET`  | `/api/daily-summary` | Aggregate daily summary stats per camera/location |
+
+### Analytics & Comparative Intelligence (Task 2)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/stats/history` | Filterable, paginated search over raw historical records with period summary stats |
+| `GET`  | `/api/stats/comparison` | Side-by-side comparative analysis across cameras, locations, or time periods (Period A vs B) |
+| `GET`  | `/api/stats/trends` | Time-series trendlines, 24-hour peak hour matrix, day-of-week breakdown, and density share |
 
 ### Image Upload
 
