@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const CrowdStat = require("../models/CrowdStat");
+const HourlyStat = require("../models/HourlyStat");
+const DailyStat = require("../models/DailyStat");
+const { aggregateHourlyStats, aggregateDailyStats, runCatchupAggregation } = require("../services/aggregationService");
+
 
 // Helper function to build date & metadata $match stage
 function buildMatchQuery(query) {
@@ -521,4 +525,139 @@ router.get("/trends", async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. POST /api/stats/aggregate/trigger
+// Manual or programmatic trigger for hourly and daily aggregation pipelines
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/aggregate/trigger", async (req, res) => {
+  try {
+    const { type = "all", startTime, endTime, dateStr, startDate, endDate, camera, location } = req.body || {};
+    let result = {};
+
+    if (type === "hourly") {
+      result = await aggregateHourlyStats({ startTime, endTime, camera, location });
+    } else if (type === "daily") {
+      result = await aggregateDailyStats({ dateStr, startDate, endDate, camera, location });
+    } else {
+      // type === "all" or "catchup"
+      result = await runCatchupAggregation();
+    }
+
+    res.json({
+      success: true,
+      type,
+      result
+    });
+  } catch (err) {
+    console.error("POST /api/stats/aggregate/trigger error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to run aggregation pipeline" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. GET /api/stats/aggregated/hourly
+// Query pre-computed hourly crowd statistics with filtering & pagination
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/aggregated/hourly", async (req, res) => {
+  try {
+    const match = {};
+    const { camera, location, dateStr, startDate, endDate, hour } = req.query;
+
+    if (camera) {
+      const cams = camera.split(",").map((c) => c.trim()).filter(Boolean);
+      match.camera = cams.length === 1 ? cams[0] : { $in: cams };
+    }
+    if (location) {
+      const locs = location.split(",").map((l) => l.trim()).filter(Boolean);
+      match.location = locs.length === 1 ? locs[0] : { $in: locs };
+    }
+    if (dateStr) match.dateStr = dateStr;
+    if (hour !== undefined && hour !== null && hour !== "") match.hour = parseInt(hour, 10);
+
+    if (startDate || endDate) {
+      match.timestamp = {};
+      if (startDate) match.timestamp.$gte = new Date(startDate);
+      if (endDate) match.timestamp.$lte = new Date(endDate);
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const skip = (page - 1) * limit;
+
+    const total = await HourlyStat.countDocuments(match);
+    const docs = await HourlyStat.find(match)
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      success: true,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1
+      },
+      data: docs
+    });
+  } catch (err) {
+    console.error("GET /api/stats/aggregated/hourly error:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch aggregated hourly stats" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. GET /api/stats/aggregated/daily
+// Query pre-computed daily crowd statistics with filtering & pagination
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/aggregated/daily", async (req, res) => {
+  try {
+    const match = {};
+    const { camera, location, dateStr, startDate, endDate } = req.query;
+
+    if (camera) {
+      const cams = camera.split(",").map((c) => c.trim()).filter(Boolean);
+      match.camera = cams.length === 1 ? cams[0] : { $in: cams };
+    }
+    if (location) {
+      const locs = location.split(",").map((l) => l.trim()).filter(Boolean);
+      match.location = locs.length === 1 ? locs[0] : { $in: locs };
+    }
+    if (dateStr) match.dateStr = dateStr;
+
+    if (startDate || endDate) {
+      match.timestamp = {};
+      if (startDate) match.timestamp.$gte = new Date(startDate);
+      if (endDate) match.timestamp.$lte = new Date(endDate);
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const skip = (page - 1) * limit;
+
+    const total = await DailyStat.countDocuments(match);
+    const docs = await DailyStat.find(match)
+      .sort({ dateStr: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    res.json({
+      success: true,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1
+      },
+      data: docs
+    });
+  } catch (err) {
+    console.error("GET /api/stats/aggregated/daily error:", err);
+    res.status(500).json({ success: false, error: "Failed to fetch aggregated daily stats" });
+  }
+});
+
 module.exports = router;
+

@@ -14,6 +14,7 @@ const CrowdStat = require("./models/CrowdStat");
 const { CAMPUS_LOCATIONS } = require("./models/CrowdStat");
 const User = require("./models/User");
 const analyticsRouter = require("./routes/analytics");
+const { initCronJobs } = require("./services/cronScheduler");
 
 const app    = express();
 const server = http.createServer(app);
@@ -25,8 +26,12 @@ app.use(express.json({ limit: "2mb" }));
 //─── MongoDB ─────────────────────────────────────────────
 mongoose
   .connect("mongodb://127.0.0.1:27017/crowd")
-  .then(() => console.log("✅ MongoDB connected"))
+  .then(() => {
+    console.log("✅ MongoDB connected");
+    initCronJobs();
+  })
   .catch((err) => console.error("❌ MongoDB error:", err));
+
 
 // require("dotenv").config();
 
