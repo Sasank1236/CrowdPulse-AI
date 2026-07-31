@@ -121,7 +121,7 @@ async function aggregateHourlyStats(options = {}) {
       await HourlyStat.findOneAndUpdate(
         { camera: docData.camera, location: docData.location, timestamp: docData.timestamp },
         { $set: docData },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       );
 
       upsertCount++;
@@ -282,7 +282,7 @@ async function aggregateDailyStats(options = {}) {
       await DailyStat.findOneAndUpdate(
         { camera: docData.camera, location: docData.location, dateStr: docData.dateStr },
         { $set: docData },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       );
 
       upsertCount++;

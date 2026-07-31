@@ -141,7 +141,7 @@ async function runTests() {
     const trigRes = await fetch(`${baseUrl}/aggregate/trigger`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "all" }),
+      body: JSON.stringify({ type: "hourly", camera: "CRON_TEST_CAM_A" }),
     });
     const trigData = await trigRes.json();
     assert(trigData.success === true, "POST /api/stats/aggregate/trigger returns success: true");
