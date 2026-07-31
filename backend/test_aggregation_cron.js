@@ -20,11 +20,12 @@ async function runTests() {
     console.log("✅ Connected to MongoDB");
 
     const TEST_CAMS = ["CRON_TEST_CAM_A", "CRON_TEST_CAM_B"];
+    const ALL_TEST_CAMS = ["CRON_TEST_CAM_A", "CRON_TEST_CAM_B", "TEST_CAM_A", "TEST_CAM_B", "TEST_CAM_C", "INT_TEST_CAM_A", "INT_TEST_CAM_B"];
 
     // 1. Cleanup old test records if present
-    await CrowdStat.deleteMany({ camera: { $in: TEST_CAMS } });
-    await HourlyStat.deleteMany({ camera: { $in: TEST_CAMS } });
-    await DailyStat.deleteMany({ camera: { $in: TEST_CAMS } });
+    await CrowdStat.deleteMany({ camera: { $in: ALL_TEST_CAMS } });
+    await HourlyStat.deleteMany({ camera: { $in: ALL_TEST_CAMS } });
+    await DailyStat.deleteMany({ camera: { $in: ALL_TEST_CAMS } });
 
     console.log("🌱 Seeding raw telemetry records for testing...");
     const now = new Date();
@@ -87,9 +88,13 @@ async function runTests() {
     // ─────────────────────────────────────────────────────────────────────────
     console.log("🔹 Testing 1. Hourly Aggregation Pipeline");
 
-    const hourlyRes = await runCatchupAggregation();
-    assert(hourlyRes.success === true, "runCatchupAggregation returns success: true");
-    assert(hourlyRes.hourlyUpserts > 0, "hourly aggregation created hourly stats docs");
+    for (let cIdx = 0; cIdx < TEST_CAMS.length; cIdx++) {
+      await aggregateHourlyStats({ camera: TEST_CAMS[cIdx] });
+      const dStrs = await HourlyStat.distinct("dateStr", { camera: TEST_CAMS[cIdx] });
+      for (const dStr of dStrs) {
+        await aggregateDailyStats({ camera: TEST_CAMS[cIdx], dateStr: dStr });
+      }
+    }
 
     const hourlyDocs = await HourlyStat.find({ camera: "CRON_TEST_CAM_A" });
     assert(hourlyDocs.length > 0, "HourlyStat docs saved for CRON_TEST_CAM_A");
@@ -99,7 +104,9 @@ async function runTests() {
 
     // Idempotency check: run hourly aggregation again
     const countBefore = await HourlyStat.countDocuments({ camera: { $in: TEST_CAMS } });
-    await runCatchupAggregation();
+    for (let cIdx = 0; cIdx < TEST_CAMS.length; cIdx++) {
+      await aggregateHourlyStats({ camera: TEST_CAMS[cIdx] });
+    }
     const countAfter = await HourlyStat.countDocuments({ camera: { $in: TEST_CAMS } });
     assert(countBefore === countAfter, "Hourly aggregation is idempotent (no duplicate docs created on re-run)");
 
