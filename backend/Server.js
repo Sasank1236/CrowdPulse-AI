@@ -238,6 +238,8 @@ const handleLiveStatsIngestion = async (req, res) => {
 app.post("/api/live-stats", handleLiveStatsIngestion);
 app.post("/api/stats",      handleLiveStatsIngestion);
 app.use("/api/stats",       analyticsRouter);
+app.use("/api/analytics",   analyticsRouter);
+
 
 
 // ─── Cameras list ───────────────────────────────────────

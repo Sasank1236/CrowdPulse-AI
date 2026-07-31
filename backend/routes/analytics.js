@@ -555,10 +555,11 @@ router.post("/aggregate/trigger", async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. GET /api/stats/aggregated/hourly
-// Query pre-computed hourly crowd statistics with filtering & pagination
+// 5. GET /hourly (also accessible via /api/analytics/hourly and /api/stats/aggregated/hourly)
+// High-Performance pre-aggregated 1-hour analytics endpoint
 // ─────────────────────────────────────────────────────────────────────────────
-router.get("/aggregated/hourly", async (req, res) => {
+router.get(["/hourly", "/aggregated/hourly"], async (req, res) => {
+  const startTimeMs = performance.now();
   try {
     const match = {};
     const { camera, location, dateStr, startDate, endDate, hour } = req.query;
@@ -591,8 +592,46 @@ router.get("/aggregated/hourly", async (req, res) => {
       .limit(limit)
       .lean();
 
+    const summaryAgg = await HourlyStat.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalObservations: { $sum: "$totalObservations" },
+          avgPeople: { $avg: "$avgPeople" },
+          maxPeople: { $max: "$maxPeople" },
+          minPeople: { $min: "$minPeople" },
+          avgDensityRatio: { $avg: "$avgDensityRatio" },
+          highDensityCount: { $sum: "$highDensityCount" },
+          lowCount: { $sum: "$densityBreakdown.LOW" },
+          mediumCount: { $sum: "$densityBreakdown.MEDIUM" },
+          highCount: { $sum: "$densityBreakdown.HIGH" }
+        }
+      }
+    ]);
+
+    const s = summaryAgg[0] || {};
+    const executionTimeMs = Number((performance.now() - startTimeMs).toFixed(2));
+
     res.json({
       success: true,
+      isPreAggregated: true,
+      querySource: "HourlyStat",
+      executionTimeMs,
+      summary: {
+        totalRecords: total,
+        totalObservations: s.totalObservations || 0,
+        avgPeople: Number((s.avgPeople || 0).toFixed(1)),
+        maxPeople: s.maxPeople || 0,
+        minPeople: s.minPeople || 0,
+        avgDensityRatio: Number((s.avgDensityRatio || 0).toFixed(2)),
+        highDensityCount: s.highDensityCount || 0,
+        densityBreakdown: {
+          LOW: s.lowCount || 0,
+          MEDIUM: s.mediumCount || 0,
+          HIGH: s.highCount || 0
+        }
+      },
       pagination: {
         total,
         page,
@@ -602,16 +641,17 @@ router.get("/aggregated/hourly", async (req, res) => {
       data: docs
     });
   } catch (err) {
-    console.error("GET /api/stats/aggregated/hourly error:", err);
+    console.error("GET /hourly error:", err);
     res.status(500).json({ success: false, error: "Failed to fetch aggregated hourly stats" });
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. GET /api/stats/aggregated/daily
-// Query pre-computed daily crowd statistics with filtering & pagination
+// 6. GET /daily (also accessible via /api/analytics/daily and /api/stats/aggregated/daily)
+// High-Performance pre-aggregated 24-hour daily analytics endpoint
 // ─────────────────────────────────────────────────────────────────────────────
-router.get("/aggregated/daily", async (req, res) => {
+router.get(["/daily", "/aggregated/daily"], async (req, res) => {
+  const startTimeMs = performance.now();
   try {
     const match = {};
     const { camera, location, dateStr, startDate, endDate } = req.query;
@@ -643,8 +683,57 @@ router.get("/aggregated/daily", async (req, res) => {
       .limit(limit)
       .lean();
 
+    const summaryAgg = await DailyStat.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalObservations: { $sum: "$totalObservations" },
+          avgPeople: { $avg: "$avgPeople" },
+          maxPeople: { $max: "$maxPeople" },
+          minPeople: { $min: "$minPeople" },
+          avgDensityRatio: { $avg: "$avgDensityRatio" },
+          highDensityCount: { $sum: "$highDensityCount" },
+          lowCount: { $sum: "$densityBreakdown.LOW" },
+          mediumCount: { $sum: "$densityBreakdown.MEDIUM" },
+          highCount: { $sum: "$densityBreakdown.HIGH" }
+        }
+      }
+    ]);
+
+    const s = summaryAgg[0] || {};
+    const executionTimeMs = Number((performance.now() - startTimeMs).toFixed(2));
+
+    let peakHour = 0;
+    let peakHourMaxPeople = 0;
+    docs.forEach((d) => {
+      if (d.peakHourMaxPeople > peakHourMaxPeople) {
+        peakHourMaxPeople = d.peakHourMaxPeople;
+        peakHour = d.peakHour;
+      }
+    });
+
     res.json({
       success: true,
+      isPreAggregated: true,
+      querySource: "DailyStat",
+      executionTimeMs,
+      summary: {
+        totalRecords: total,
+        totalObservations: s.totalObservations || 0,
+        avgPeople: Number((s.avgPeople || 0).toFixed(1)),
+        maxPeople: s.maxPeople || 0,
+        minPeople: s.minPeople || 0,
+        avgDensityRatio: Number((s.avgDensityRatio || 0).toFixed(2)),
+        highDensityCount: s.highDensityCount || 0,
+        peakHour,
+        peakHourMaxPeople,
+        densityBreakdown: {
+          LOW: s.lowCount || 0,
+          MEDIUM: s.mediumCount || 0,
+          HIGH: s.highCount || 0
+        }
+      },
       pagination: {
         total,
         page,
@@ -654,10 +743,11 @@ router.get("/aggregated/daily", async (req, res) => {
       data: docs
     });
   } catch (err) {
-    console.error("GET /api/stats/aggregated/daily error:", err);
+    console.error("GET /daily error:", err);
     res.status(500).json({ success: false, error: "Failed to fetch aggregated daily stats" });
   }
 });
+
 
 module.exports = router;
 

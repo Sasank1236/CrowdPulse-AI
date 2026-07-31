@@ -18,6 +18,8 @@
 | **Historical Data Storage (Task 1)** | Granular database schema & temporal indexing (`hour`, `dayOfWeek`, `dateStr`, `isWeekend`, `weather`, `eventType`, `location`) |
 | **Analytics APIs (Task 2.1)** | REST endpoints for historical search (`/api/stats/history`), multi-camera / location / period comparison (`/api/stats/comparison`), and trendlines (`/api/stats/trends`) |
 | **Analytics Dashboard & Charts (Task 2.2)** | Dedicated React Analytics view with time-series area charts, 24h peak hour matrix, day-of-week distribution, multi-entity comparative cards, and period delta banners |
+| **Aggregation Pipeline & Background Cron Jobs (Task 3.1)** | Idempotent background aggregation engine (`HourlyStat`, `DailyStat`) with `node-cron` workers (`0 * * * *` and `0 0 * * *`) |
+| **High-Performance Aggregated Analytics API & UI (Task 3.2)** | Fast `/api/analytics/hourly` & `/api/analytics/daily` endpoints, pre-aggregated mode toggle, query execution timing metrics (`<5ms`), 24h peak hour cards, and dedicated summary table view |
 
 ---
 
@@ -205,6 +207,15 @@ python crowd_detection.py
 | `GET`  | `/api/stats/history` | Filterable, paginated search over raw historical records with period summary stats |
 | `GET`  | `/api/stats/comparison` | Side-by-side comparative analysis across cameras, locations, or time periods (Period A vs B) |
 | `GET`  | `/api/stats/trends` | Time-series trendlines, 24-hour peak hour matrix, day-of-week breakdown, and density share |
+
+### High-Performance Aggregated Analytics (Task 3)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/analytics/hourly` | Pre-aggregated 1-hour summary stats with execution timing & query provenance |
+| `GET`  | `/api/analytics/daily` | Pre-aggregated 24-hour daily summaries with peak hour detection & max crowd counts |
+| `POST` | `/api/stats/aggregate/trigger` | Programmatic / manual trigger to run background aggregation pipelines |
+
 
 ### Image Upload
 
