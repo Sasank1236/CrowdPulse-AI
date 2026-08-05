@@ -1,6 +1,3 @@
-
-
-
 // const mongoose = require("mongoose");
 
 // const CrowdStatSchema = new mongoose.Schema({
@@ -180,11 +177,16 @@ CrowdStatSchema.pre("validate", function () {
 // ── Compound indexes (Task 1.1) ───────────────────────────────────
 CrowdStatSchema.index({ camera: 1,   timestamp: -1 });
 CrowdStatSchema.index({ location: 1, timestamp: -1 });
-CrowdStatSchema.index({ timestamp: -1 });
+
+// TTL index: auto-deletes raw CrowdStat documents 60 days after their
+// `timestamp`. This only prunes the raw, high-frequency collection —
+// HourlyStat and DailyStat (which the ML pipeline and Analytics tab read)
+// are separate, permanent collections and are never touched by this.
+CrowdStatSchema.index({ timestamp: -1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 });
+
 CrowdStatSchema.index({ camera: 1,   dateStr: 1 });
 CrowdStatSchema.index({ location: 1, dateStr: 1 });
 CrowdStatSchema.index({ hour: 1,     dayOfWeek: 1 });
 
 module.exports = mongoose.model("CrowdStat", CrowdStatSchema);
 module.exports.CAMPUS_LOCATIONS = CAMPUS_LOCATIONS;
-

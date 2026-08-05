@@ -305,6 +305,66 @@ app.get("/api/daily-summary", async (req, res) => {
 });
 
 
+// ─── AI Next-Day Crowd Prediction (independent ML microservice) ─────────
+// These routes only forward to ml/predictor.py (port 5002).
+// They do not touch CrowdStat/DailyStat/HourlyStat, the live pipeline,
+// or any other existing route.
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:5002";
+
+app.get("/api/predictions", async (_req, res) => {
+  try {
+    const mlRes = await axios.get(`${ML_SERVICE_URL}/predict/all`);
+    res.json(mlRes.data);
+  } catch (err) {
+    console.error("Prediction service error:", err.message);
+    res.status(503).json({ error: "Prediction service unavailable" });
+  }
+});
+
+app.get("/api/predictions/analytics/metrics", async (_req, res) => {
+  try {
+    const mlRes = await axios.get(`${ML_SERVICE_URL}/analytics/metrics`);
+    res.json(mlRes.data);
+  } catch (err) {
+    res.status(503).json({ error: "Prediction service unavailable" });
+  }
+});
+
+app.get("/api/predictions/analytics/backtest", async (_req, res) => {
+  try {
+    const mlRes = await axios.get(`${ML_SERVICE_URL}/analytics/backtest/all`);
+    res.json(mlRes.data);
+  } catch (err) {
+    res.status(503).json({ error: "Prediction service unavailable" });
+  }
+});
+
+app.get("/api/predictions/analytics/backtest/:camera", async (req, res) => {
+  try {
+    const mlRes = await axios.get(
+      `${ML_SERVICE_URL}/analytics/backtest/${encodeURIComponent(req.params.camera)}`
+    );
+    res.json(mlRes.data);
+  } catch (err) {
+    res.status(503).json({ error: "Prediction service unavailable" });
+  }
+});
+
+// NOTE: this generic /:camera route must stay LAST among /api/predictions/*
+// routes, or it will swallow the more specific /analytics/* paths above.
+app.get("/api/predictions/:camera", async (req, res) => {
+  try {
+    const mlRes = await axios.get(
+      `${ML_SERVICE_URL}/predict/${encodeURIComponent(req.params.camera)}`
+    );
+    res.json(mlRes.data);
+  } catch (err) {
+    console.error("Prediction service error:", err.message);
+    res.status(503).json({ error: "Prediction service unavailable" });
+  }
+});
+
+
 // ─── Socket ─────────────────────────────────────────────
 io.on("connection", (socket) => {
 

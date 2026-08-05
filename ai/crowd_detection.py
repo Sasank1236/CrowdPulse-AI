@@ -41,7 +41,7 @@ CAMERA_LOCATIONS = {
 API_URL        = "http://localhost:5000/api/live-stats"
 THRESHOLDS_URL = "http://localhost:5000/api/thresholds"
 
-POST_INTERVAL = 0.5
+POST_INTERVAL = 5
 TWILIO_COOLDOWN = 60
 SMOOTHING_WINDOW = 10
 
