@@ -1,0 +1,30 @@
+{
+  "average_people_model": {
+    "selected": "XGBoost",
+    "cv_mae_by_candidate": {
+      "RandomForest": 0.453,
+      "GradientBoosting": 0.402,
+      "XGBoost": 0.385
+    },
+    "test_metrics": {
+      "MAE": 0.67,
+      "RMSE": 0.746,
+      "R2": 0.183
+    }
+  },
+  "peak_people_model": {
+    "selected": "GradientBoosting",
+    "cv_mae_by_candidate": {
+      "RandomForest": 0.821,
+      "GradientBoosting": 0.733,
+      "XGBoost": 0.847
+    },
+    "test_metrics": {
+      "MAE": 1.0,
+      "RMSE": 1.527,
+      "R2": -0.036
+    }
+  },
+  "dataset_rows": 18,
+  "trained_at": "2026-08-05T10:07:18.694427"
+}

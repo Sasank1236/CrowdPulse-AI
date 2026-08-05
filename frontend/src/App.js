@@ -9,6 +9,7 @@ import Analytics from "./Analytics";
 import Settings from "./Settings";
 import CrowdHeatmap from "./Crowdheatmap";
 import Login from "./Login";
+import AIPrediction from "./AIPrediction";
 import "./App.css";
 
 const socket = io("http://localhost:5000");
@@ -228,10 +229,10 @@ export default function App() {
   const densityColor = DENSITY_COLORS[liveData.density] || "#6b7280";
   const isPublic     = auth.role === "public";
 
-  // Public users only see the live tab
+  // Public users see live + prediction; staff also get analytics/history/settings
   const availableTabs = isPublic
-    ? ["live"]
-    : ["live", "analytics", "history", "settings"];
+    ? ["live", "prediction"]
+    : ["live", "analytics", "history", "settings", "prediction"];
 
   return (
     <div className="app-container">
@@ -258,7 +259,9 @@ export default function App() {
             className={`nav-tab ${view === tab ? "active" : ""}`}
             onClick={() => setView(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "prediction"
+              ? "AI Prediction"
+              : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
         {isPublic && (
@@ -450,6 +453,7 @@ export default function App() {
       {view === "analytics" && !isPublic && <Analytics cameras={cameras} selectedCam={selectedCam} />}
       {view === "history"   && !isPublic && <History selectedCam={selectedCam} cameras={cameras} />}
       {view === "settings"  && !isPublic && <Settings token={auth.token} />}
+      {view === "prediction" && <AIPrediction cameras={cameras} />}
     </div>
   );
 }
