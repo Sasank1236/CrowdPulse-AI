@@ -24,13 +24,14 @@ services:
       dockerfile: Dockerfile
     container_name: crowdpulse-backend
     restart: always
+    env_file:
+      - .env
     ports:
-      - "5000:5000"
+      - "${PORT:-5000}:5000"
     environment:
-      - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/crowd
-      - AI_SERVICE_URL=http://ai:5001
-      - ML_SERVICE_URL=http://ml:5002
+      - MONGO_URI=${DOCKER_MONGO_URI:-mongodb://mongodb:27017/crowd}
+      - AI_SERVICE_URL=${DOCKER_AI_SERVICE_URL:-http://ai:5001}
+      - ML_SERVICE_URL=${DOCKER_ML_SERVICE_URL:-http://ml:5002}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:5000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 10s
@@ -50,7 +51,7 @@ services:
     container_name: crowdpulse-frontend
     restart: always
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -63,11 +64,12 @@ services:
       dockerfile: Dockerfile
     container_name: crowdpulse-ai
     restart: always
+    env_file:
+      - .env
     ports:
-      - "5001:5001"
+      - "${AI_PORT:-5001}:5001"
     environment:
-      - PORT=5001
-      - BACKEND_URL=http://backend:5000
+      - BACKEND_URL=${DOCKER_BACKEND_URL:-http://backend:5000}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 10s
@@ -86,12 +88,13 @@ services:
       dockerfile: Dockerfile
     container_name: crowdpulse-ml
     restart: always
+    env_file:
+      - .env
     ports:
-      - "5002:5002"
+      - "${ML_PORT:-5002}:5002"
     environment:
-      - PREDICTOR_PORT=5002
-      - MONGO_URI=mongodb://mongodb:27017/crowd
-      - BACKEND_URL=http://backend:5000
+      - MONGO_URI=${DOCKER_MONGO_URI:-mongodb://mongodb:27017/crowd}
+      - BACKEND_URL=${DOCKER_BACKEND_URL:-http://backend:5000}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/health')"]
       interval: 10s

@@ -27,6 +27,7 @@ require("dotenv").config();
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5001";
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/crowd";
+const JWT_SECRET = process.env.JWT_SECRET || "secret123";
 
 //─── MongoDB ─────────────────────────────────────────────
 mongoose
@@ -57,7 +58,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      "secret123",
+      JWT_SECRET,
       { expiresIn: "1d" }
     );
 
