@@ -23,22 +23,19 @@ const io     = new Server(server, { cors: { origin: "*" } });
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
+require("dotenv").config();
+
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5001";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/crowd";
+
 //─── MongoDB ─────────────────────────────────────────────
 mongoose
-  .connect("mongodb://127.0.0.1:27017/crowd")
+  .connect(MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
     initCronJobs();
   })
   .catch((err) => console.error("❌ MongoDB error:", err));
-
-
-// require("dotenv").config();
-
-// mongoose
-//   .connect(process.env.MONGO_URI)
-//   .then(() => console.log("✅ MongoDB connected"))
-//   .catch((err) => console.error("❌ MongoDB error:", err));
 // ─── LOGIN ROUTE ─────────────────────────────────────────
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -90,7 +87,7 @@ app.post("/api/upload-image", upload.single("image"), async (req, res) => {
     });
 
     const pyRes = await axios.post(
-      "http://localhost:5001/process_image",
+      `${AI_SERVICE_URL}/process_image`,
       form,
       { headers: form.getHeaders(), maxBodyLength: Infinity }
     );

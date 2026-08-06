@@ -1,0 +1,85 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: crowdpulse-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=crowd
+    networks:
+      - crowdpulse-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crowdpulse-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/crowd
+      - AI_SERVICE_URL=http://ai:5001
+      - ML_SERVICE_URL=http://ml:5002
+    depends_on:
+      - mongodb
+    networks:
+      - crowdpulse-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: crowdpulse-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - crowdpulse-net
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: crowdpulse-ai
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - BACKEND_URL=http://backend:5000
+    depends_on:
+      - backend
+    networks:
+      - crowdpulse-net
+
+  ml:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    container_name: crowdpulse-ml
+    restart: always
+    ports:
+      - "5002:5002"
+    environment:
+      - PREDICTOR_PORT=5002
+      - MONGO_URI=mongodb://mongodb:27017/crowd
+      - BACKEND_URL=http://backend:5000
+    depends_on:
+      - mongodb
+      - backend
+    networks:
+      - crowdpulse-net
+
+volumes:
+  mongo_data:
+
+networks:
+  crowdpulse-net:
+    driver: bridge

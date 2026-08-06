@@ -1,0 +1,15 @@
+.git
+.gitignore
+README.md
+LICENSE
+node_modules
+npm-debug.log
+build
+dist
+.env
+.env.local
+.venv
+venv
+__pycache__
+*.pyc
+*.log

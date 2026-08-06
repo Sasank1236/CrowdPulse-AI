@@ -1,0 +1,7 @@
+opencv-python-headless
+numpy
+requests
+flask
+ultralytics
+twilio
+python-dotenv

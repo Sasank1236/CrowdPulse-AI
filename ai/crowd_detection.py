@@ -37,9 +37,9 @@ CAMERA_LOCATIONS = {
 }
 
 
-# ---------------- API & ASYNC DISPATCHER (Task 1.2) ----------------
-API_URL        = "http://localhost:5000/api/live-stats"
-THRESHOLDS_URL = "http://localhost:5000/api/thresholds"
+BACKEND_URL    = os.getenv("BACKEND_URL", "http://localhost:5000")
+API_URL        = f"{BACKEND_URL}/api/live-stats"
+THRESHOLDS_URL = f"{BACKEND_URL}/api/thresholds"
 
 POST_INTERVAL = 5
 TWILIO_COOLDOWN = 60
