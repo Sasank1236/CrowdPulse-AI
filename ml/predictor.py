@@ -248,11 +248,8 @@ def analytics_metrics():
 
 @app.route("/health")
 def health():
-    try:
-        load_bundle()
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "detail": str(e)}), 500
+    model_ready = os.path.exists(MODEL_PATH)
+    return jsonify({"status": "ok", "model_ready": model_ready}), 200
 
 
 if __name__ == "__main__":
