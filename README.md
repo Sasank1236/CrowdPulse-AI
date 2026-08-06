@@ -266,14 +266,7 @@ The system is configured for the **PDPM IIITDM Jabalpur** campus with the follow
 
 ### Camera Sources
 
-Edit `CAMERAS` in [`ai/crowd_detection.py`](ai/crowd_detection.py):
-
-```python
-CAMERAS = {
-    "cam1": 0,                                    # Local webcam
-    "cam2": "http://10.22.226.213:4747/video",    # IP camera (DroidCam etc.)
-}
-```
+Configure IP Cameras (RTSP/HTTP stream URLs) directly in the **Control Panel UI** under Settings / IP Camera Management. The AI detection microservice dynamically retrieves enabled cameras from MongoDB via `/api/cameras`.
 
 ### Twilio SMS Alerts
 

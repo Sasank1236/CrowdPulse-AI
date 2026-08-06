@@ -26,20 +26,10 @@ USER_MOBILE   = os.getenv("USER_MOBILE", "+910000000000")
 
 
 # ---------------- CAMERAS & LOCATION MAPPING ----------------
-CAMERAS = {
-    "cam1": 0,
-    #"cam2": "http://10.22.226.213:4747/video",
-}
-
-CAMERA_LOCATIONS = {
-    "cam1": "LHTC",
-    "cam2": "CC",
-}
-
-
 BACKEND_URL    = os.getenv("BACKEND_URL", "http://localhost:5000")
 API_URL        = f"{BACKEND_URL}/api/live-stats"
 THRESHOLDS_URL = f"{BACKEND_URL}/api/thresholds"
+CAMERAS_URL    = f"{BACKEND_URL}/api/cameras"
 
 POST_INTERVAL = 5
 TWILIO_COOLDOWN = 60
@@ -186,6 +176,18 @@ def fetch_thresholds():
         return thresholds
 
 
+def fetch_cameras():
+    """Fetch enabled IP cameras configured via the backend API."""
+    try:
+        r = requests.get(CAMERAS_URL, timeout=1.5)
+        if r.status_code == 200:
+            all_cams = r.json()
+            return [c for c in all_cams if c.get("status", "enabled") == "enabled"]
+    except Exception:
+        pass
+    return []
+
+
 # -------- REMOVE DUPLICATES --------
 def suppress_duplicates(boxes, iou_threshold=0.4):
 
@@ -233,7 +235,7 @@ class CrowdCamera:
 
         self.cam_id = cam_id
         self.source = source
-        self.location = location or CAMERA_LOCATIONS.get(cam_id, "LHTC")
+        self.location = location or "LHTC"
         self.cap = cv2.VideoCapture(source)
 
         self.tracked = []
@@ -476,21 +478,51 @@ class CrowdCamera:
 # ---------------- MAIN ----------------
 threading.Thread(target=run_stream_server, daemon=True).start()
 
-thresholds = fetch_thresholds()
-cameras = [CrowdCamera(cid,src) for cid,src in CAMERAS.items()]
+active_cameras = {}  # cam_name -> CrowdCamera instance
 
 while True:
-
     thresholds = fetch_thresholds()
+    enabled_cam_configs = fetch_cameras()
 
-    for cam in cameras:
+    current_names = set()
+    for config in enabled_cam_configs:
+        cam_name = config.get("name")
+        stream_url = config.get("streamUrl")
+        location = config.get("location", "LHTC")
+        if not cam_name or not stream_url:
+            continue
+        current_names.add(cam_name)
 
+        if cam_name not in active_cameras:
+            active_cameras[cam_name] = CrowdCamera(cam_name, stream_url, location)
+        else:
+            cam_obj = active_cameras[cam_name]
+            if cam_obj.source != stream_url or cam_obj.location != location:
+                cam_obj.source = stream_url
+                cam_obj.location = location
+                cam_obj.reconnect()
+
+    # Release and remove disabled or deleted cameras
+    for name in list(active_cameras.keys()):
+        if name not in current_names:
+            try:
+                active_cameras[name].cap.release()
+            except Exception:
+                pass
+            del active_cameras[name]
+
+    if not active_cameras:
+        time.sleep(1)
+        continue
+
+    for name, cam in list(active_cameras.items()):
         frame = cam.process(thresholds)
-
         if frame is not None:
-            cv2.imshow(cam.cam_id,frame)
-
-    if cv2.waitKey(1)==27:
-        break
+            try:
+                cv2.imshow(cam.cam_id, frame)
+                if cv2.waitKey(1) == 27:
+                    break
+            except Exception:
+                pass
 
 cv2.destroyAllWindows()

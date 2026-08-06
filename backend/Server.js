@@ -13,6 +13,7 @@ const FormData = require("form-data");
 const CrowdStat = require("./models/CrowdStat");
 const { CAMPUS_LOCATIONS } = require("./models/CrowdStat");
 const User = require("./models/User");
+const Camera = require("./models/Camera");
 const analyticsRouter = require("./routes/analytics");
 const { initCronJobs } = require("./services/cronScheduler");
 
@@ -168,6 +169,63 @@ app.post("/api/thresholds", async (req, res) => {
 
   } catch {
     res.status(500).json({ error: "Failed to save thresholds" });
+  }
+});
+
+
+// ─── IP Camera Management Routes ─────────────────────────
+app.get("/api/cameras", async (_req, res) => {
+  try {
+    let cameras = await Camera.find().sort({ createdAt: -1 });
+    res.json(cameras);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch cameras" });
+  }
+});
+
+app.post("/api/cameras", async (req, res) => {
+  try {
+    const { name, location, streamUrl, status } = req.body;
+    if (!name || !location || !streamUrl) {
+      return res.status(400).json({ error: "Name, location, and streamUrl are required" });
+    }
+    const camera = await Camera.create({
+      name,
+      location,
+      streamUrl,
+      status: status || "enabled",
+    });
+    io.emit("camerasUpdated", camera);
+    res.status(201).json(camera);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create camera" });
+  }
+});
+
+app.put("/api/cameras/:id", async (req, res) => {
+  try {
+    const { name, location, streamUrl, status } = req.body;
+    const updated = await Camera.findByIdAndUpdate(
+      req.params.id,
+      { name, location, streamUrl, status },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: "Camera not found" });
+    io.emit("camerasUpdated", updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update camera" });
+  }
+});
+
+app.delete("/api/cameras/:id", async (req, res) => {
+  try {
+    const deleted = await Camera.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Camera not found" });
+    io.emit("camerasUpdated", { deletedId: req.params.id });
+    res.json({ message: "Camera deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete camera" });
   }
 });
 
