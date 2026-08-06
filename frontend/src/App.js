@@ -102,10 +102,12 @@ export default function App() {
   const alertTimers = useRef({});
 
   // ── Security image upload ─────────────────────────────────────────────────
-  const [uploadFile,   setUploadFile]   = useState(null);
-  const [uploading,    setUploading]    = useState(false);
-  const [uploadError,  setUploadError]  = useState("");
-  const [uploadedImage, setUploadedImage] = useState(null); // latest analyzed upload (shown to control + the uploader)
+  const [uploadFile,     setUploadFile]     = useState(null);
+  const [uploading,      setUploading]      = useState(false);
+  const [uploadError,    setUploadError]    = useState("");
+  const [uploadedImage,  setUploadedImage]  = useState(null);
+  const [uploadLocation, setUploadLocation] = useState("");  // selected campus location
+  const [locationList,   setLocationList]   = useState([]);  // list from /api/locations
 
   const handleUpload = async () => {
     if (!uploadFile) return;
@@ -115,6 +117,7 @@ export default function App() {
     const form = new FormData();
     form.append("image", uploadFile);
     form.append("username", auth.username);
+    if (uploadLocation) form.append("location", uploadLocation);
 
     try {
       const res = await fetch("http://localhost:5000/api/upload-image", {
@@ -139,6 +142,14 @@ export default function App() {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
+  }, []);
+
+  // Load campus locations for the security upload dropdown
+  useEffect(() => {
+    fetch("http://localhost:5000/api/locations")
+      .then((r) => r.json())
+      .then((data) => setLocationList(Array.isArray(data) ? data : []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -329,14 +340,56 @@ export default function App() {
             {auth.role === "security" && (
               <div className="chart-section">
                 <h2 className="section-title">Upload Image for Analysis</h2>
+
+                {/* Location dropdown */}
+                <div style={{ marginBottom: 14 }}>
+                  <label
+                    htmlFor="upload-location-select"
+                    style={{
+                      display: "block",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "#475569",
+                      marginBottom: 5,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    📍 Campus Location
+                  </label>
+                  <select
+                    id="upload-location-select"
+                    className="form-input"
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: 7,
+                      border: "1.5px solid #cbd5e1",
+                      fontSize: "0.88rem",
+                      background: "#f8fafc",
+                      color: uploadLocation ? "#1e293b" : "#94a3b8",
+                      cursor: "pointer",
+                    }}
+                    value={uploadLocation}
+                    onChange={(e) => setUploadLocation(e.target.value)}
+                  >
+                    <option value="">— Select location —</option>
+                    {locationList.map((loc) => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* File picker */}
                 <input
                   type="file"
                   accept="image/*"
+                  style={{ width: "100%", marginBottom: 4 }}
                   onChange={(e) => setUploadFile(e.target.files[0] || null)}
                 />
                 <button
                   className="save-btn"
-                  style={{ marginTop: 12 }}
+                  style={{ marginTop: 10, width: "100%" }}
                   onClick={handleUpload}
                   disabled={uploading || !uploadFile}
                 >
@@ -350,14 +403,43 @@ export default function App() {
                     <img
                       src={uploadedImage.image}
                       alt="Analyzed upload"
-                      style={{ width: "100%", borderRadius: 8 }}
+                      style={{ width: "100%", borderRadius: 8, marginBottom: 10 }}
                     />
-                    <p style={{ marginTop: 8 }}>
-                      People: <strong>{uploadedImage.people}</strong> · Density:{" "}
-                      <strong style={{ color: DENSITY_COLORS[uploadedImage.density] }}>
-                        {uploadedImage.density}
-                      </strong>
-                    </p>
+                    <div style={{
+                      background: "#f0f9ff",
+                      border: "1.5px solid #bae6fd",
+                      borderRadius: 9,
+                      padding: "10px 14px",
+                      fontSize: "0.88rem",
+                    }}>
+                      {uploadLocation && (
+                        <div style={{ marginBottom: 6 }}>
+                          <span style={{
+                            background: "#0ea5e9",
+                            color: "#fff",
+                            borderRadius: 999,
+                            padding: "2px 10px",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                          }}>
+                            📍 {uploadLocation}
+                          </span>
+                        </div>
+                      )}
+                      <span>
+                        People: <strong>{uploadedImage.people}</strong>
+                        {" · "}
+                        Density:{" "}
+                        <strong style={{ color: DENSITY_COLORS[uploadedImage.density] }}>
+                          {uploadedImage.density}
+                        </strong>
+                        {uploadedImage.capacity != null && (
+                          <span style={{ color: "#64748b" }}>
+                            {" · "} Capacity: <strong style={{ color: "#1e293b" }}>{uploadedImage.capacity}</strong>
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

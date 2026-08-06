@@ -18,11 +18,16 @@ Run:
 """
 
 import os
+import sys
 from datetime import datetime, timedelta
 
 import pandas as pd
 from pymongo import MongoClient
 from dotenv import load_dotenv
+
+# Force UTF-8 stdout on Windows
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 load_dotenv()
 
@@ -41,7 +46,7 @@ def fetch_raw_records():
 
     cursor = collection.find(
         {},
-        {"camera": 1, "people": 1, "capacity": 1, "timestamp": 1, "_id": 0},
+        {"camera": 1, "people": 1, "capacity": 1, "timestamp": 1, "location": 1, "_id": 0},
     )
     df = pd.DataFrame(list(cursor))
     client.close()
@@ -51,6 +56,9 @@ def fetch_raw_records():
 
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df["date"] = df["timestamp"].dt.date
+    # Ensure location column exists even if no records have it
+    if "location" not in df.columns:
+        df["location"] = None
     return df
 
 
@@ -65,9 +73,13 @@ def aggregate_per_camera_per_day(df):
 
         peak_row = group.loc[group["people"].idxmax()]
 
+        locs = group["location"].dropna()
+        location = locs.mode().iloc[0] if not locs.empty else None
+
         rows.append({
             "date": date,
             "camera": camera,
+            "location": location,
             "day_of_week": pd.Timestamp(date).dayofweek,   # Monday=0 ... Sunday=6
             "month": pd.Timestamp(date).month,
             "weekend": int(pd.Timestamp(date).dayofweek >= 5),

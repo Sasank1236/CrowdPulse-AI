@@ -26,7 +26,12 @@ Run:
 """
 
 import os
+import sys
 import json
+
+# Force UTF-8 stdout on Windows to support emoji/arrow print statements
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import pandas as pd
 import numpy as np
@@ -110,7 +115,7 @@ def select_best_model(X_train, y_train, label):
     best_model = candidates[best_name]
     best_model.fit(X_train, y_train)
 
-    print(f"  → [{label}] Selected: {best_name} (CV MAE = {scores[best_name]:.2f})")
+    print(f"  -> [{label}] Selected: {best_name} (CV MAE = {scores[best_name]:.2f})")
     return best_model, best_name, scores
 
 
@@ -119,7 +124,7 @@ def evaluate(model, X_test, y_test, label):
     mae = mean_absolute_error(y_test, preds)
     rmse = mean_squared_error(y_test, preds) ** 0.5
     r2 = r2_score(y_test, preds)
-    print(f"  [{label}] Test set → MAE={mae:.2f}  RMSE={rmse:.2f}  R2={r2:.3f}")
+    print(f"  [{label}] Test set -> MAE={mae:.2f}  RMSE={rmse:.2f}  R2={r2:.3f}")
     return {"MAE": round(mae, 3), "RMSE": round(rmse, 3), "R2": round(r2, 3)}
 
 

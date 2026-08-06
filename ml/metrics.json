@@ -7,9 +7,9 @@
       "XGBoost": 0.385
     },
     "test_metrics": {
-      "MAE": 0.67,
-      "RMSE": 0.746,
-      "R2": 0.183
+      "MAE": 0.666,
+      "RMSE": 0.742,
+      "R2": 0.191
     }
   },
   "peak_people_model": {
@@ -26,5 +26,5 @@
     }
   },
   "dataset_rows": 18,
-  "trained_at": "2026-08-05T10:07:18.694427"
+  "trained_at": "2026-08-06T18:05:49.557951"
 }
