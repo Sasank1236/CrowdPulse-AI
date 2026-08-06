@@ -86,6 +86,11 @@ def generate_stream(cam_id):
         )
 
 
+@app_flask.route("/health")
+def health():
+    return {"status": "ok"}, 200
+
+
 @app_flask.route("/video_feed/<cam_id>")
 def video_feed(cam_id):
     return Response(

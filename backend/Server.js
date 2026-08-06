@@ -36,6 +36,9 @@ mongoose
     initCronJobs();
   })
   .catch((err) => console.error("❌ MongoDB error:", err));
+// ─── HEALTH ROUTE ─────────────────────────────────────────
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
+
 // ─── LOGIN ROUTE ─────────────────────────────────────────
 app.post("/api/auth/login", async (req, res) => {
   try {
