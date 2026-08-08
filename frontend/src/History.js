@@ -137,7 +137,7 @@
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-const BASE = "http://localhost:5000";
+const BASE = "https://crowdpulse-backend-uawv.onrender.com";
 
 export default function History({ selectedCam, cameras = [] }) {
   const [data,      setData]      = useState([]);

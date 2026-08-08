@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = "https://crowdpulse-backend-uawv.onrender.com";
 
 export default function Settings() {
   // ── Thresholds State ─────────────────────────────────────────

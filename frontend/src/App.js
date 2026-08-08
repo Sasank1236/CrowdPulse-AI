@@ -12,7 +12,7 @@ import Login from "./Login";
 import AIPrediction from "./AIPrediction";
 import "./App.css";
 
-const socket = io("http://localhost:5000");
+const socket = io("https://crowdpulse-backend-uawv.onrender.com");
 // const socket = io("https://real-time-crowd-analytics-system.onrender.com");
 const DENSITY_COLORS = { LOW: "#16a34a", MEDIUM: "#d97706", HIGH: "#dc2626" };
 
@@ -120,7 +120,7 @@ export default function App() {
     if (uploadLocation) form.append("location", uploadLocation);
 
     try {
-      const res = await fetch("http://localhost:5000/api/upload-image", {
+      const res = await fetch("https://crowdpulse-backend-uawv.onrender.com/api/upload-image", {
         method: "POST",
         body: form,
       });
@@ -146,14 +146,14 @@ export default function App() {
 
   // Load campus locations for the security upload dropdown
   useEffect(() => {
-    fetch("http://localhost:5000/api/locations")
+    fetch("https://crowdpulse-backend-uawv.onrender.com/api/locations")
       .then((r) => r.json())
       .then((data) => setLocationList(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/cameras")
+    fetch("https://crowdpulse-backend-uawv.onrender.com/api/cameras")
     // fetch("https://real-time-crowd-analytics-system.onrender.com/api/cameras")
       .then((r) => r.json())
       .then((list) => {
