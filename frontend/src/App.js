@@ -473,7 +473,7 @@ export default function App() {
                   <span className="section-badge">{selectedCam}</span>
                 </h2>
                 <img
-                  src={`http://localhost:5001/video_feed/${selectedCam}`}
+                  src={`https://crowdpulse-ai.onrender.com/video_feed/${selectedCam}`}
                   alt={`Live processed feed for ${selectedCam}`}
                   style={{ width: "100%", borderRadius: 8, display: "block" }}
                 />
